@@ -36,9 +36,12 @@ module.exports.userDetails = function (req, res) {
   ];
   res.status(200).json(result);
 };
+
 module.exports.registerNewUser = function (req, res) {
   const { firstName, lastName, email, password } = req.body;
+
   const ckeckQuery = `SELECT * FROM ${USER_TABLE} WHERE email=?`;
+  
   connection
     .executeQuery(ckeckQuery, [email])
     .then((result) => {
