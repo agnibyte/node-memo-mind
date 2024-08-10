@@ -5,7 +5,7 @@ const { createToken } = require("../common/jwt");
 module.exports.allUsers = function (req, res) {
   let response = { success: false };
 
-  const getQuery = "SELECT * FROM user_test";
+  const getQuery = `SELECT * FROM ${USER_TABLE}`;
   connection
     .executeQuery(getQuery)
     .then((result) => {
@@ -38,7 +38,7 @@ module.exports.userDetails = function (req, res) {
 };
 module.exports.registerNewUser = function (req, res) {
   const { firstName, lastName, email, password } = req.body;
-  const ckeckQuery = "SELECT * FROM user_test WHERE email=?";
+  const ckeckQuery = `SELECT * FROM ${USER_TABLE} WHERE email=?`;
   connection
     .executeQuery(ckeckQuery, [email])
     .then((result) => {
@@ -56,7 +56,7 @@ module.exports.registerNewUser = function (req, res) {
             password: hashed,
           };
           console.log("tempObj", tempObj);
-          const insertquery = "INSERT INTO user_test SET ?";
+          const insertquery = `INSERT INTO ${USER_TABLE} SET ?`;
           connection
             .executeQuery(insertquery, [tempObj])
             .then((result) => {
@@ -79,14 +79,14 @@ module.exports.registerNewUser = function (req, res) {
 };
 module.exports.userLogIn = function (req, res) {
   const { email, password } = req.body;
-  const ckeckQuery = "SELECT * FROM user_test WHERE email=?";
+  const ckeckQuery = `SELECT * FROM ${USER_TABLE} WHERE email=?`;
   connection
     .executeQuery(ckeckQuery, [email])
     .then((userData) => {
       if (userData.length === 0) {
         res
           .status(400)
-          .json({ success: false, message: "User does not exists" });
+          .json({ success: false, message: "Please check email ID" });
       } else {
         bcrypt.compare(password, userData[0].password).then((match) => {
           console.log(match);
@@ -114,7 +114,7 @@ module.exports.userLogIn = function (req, res) {
 };
 module.exports.getProfile = function (req, res) {
   const { id } = req.body;
-  const ckeckQuery = "SELECT * FROM user_test WHERE id=?";
+  const ckeckQuery = `SELECT * FROM ${USER_TABLE} WHERE id=?`;
   connection
     .executeQuery(ckeckQuery, [id])
     .then((userData) => {
