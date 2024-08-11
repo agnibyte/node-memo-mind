@@ -2,6 +2,7 @@ const authPage = require("../middlewares/authMiddleware");
 
 const usersController = require("../controllers/usersController");
 const { validatdeToken } = require("../common/jwt");
+
 module.exports = function (app) {
   app.get("/api/users", function (req, res) {
     usersController.allUsers(req, res);
@@ -18,7 +19,7 @@ module.exports = function (app) {
   app.post("/api/logIn", function (req, res) {
     usersController.userLogIn(req, res);
   });
-  
+
   app.get("/api/profile", validatdeToken, function (req, res) {
     usersController.getProfile(req, res);
   });
