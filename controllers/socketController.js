@@ -2,10 +2,9 @@ let allMatchesObj = {};
 
 module.exports = function (io) {
   io.on("connection", (socket) => {
-    console.log("✅ Socket.IO connected:", socket.id);
 
     socket.onAny((eventName, ...args) => {
-      console.log(`✅✅ Event received: ${eventName}`, args);
+      // console.log(`✅✅ Event received: ${eventName}`, args);
     });
 
     socket.on("joinMatch", ({ matchId, refereeId, status }) => {
