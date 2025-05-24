@@ -4,23 +4,35 @@ const cluster = require("cluster");
 const morgan = require("morgan");
 const app = express();
 const cookieParser = require("cookie-parser");
+const http = require("http");
+const { Server } = require("socket.io");
 
 app.use(cookieParser());
 app.use(express.json());
 cluster.schedulingPolicy = cluster.SCHED_RR;
 require("dotenv").config();
 
-const port = 7000;
 app.use(morgan("dev"));
-
 // const isclustered = true;
 const isclustered = false;
 const noOfCpus = os.cpus().length;
 const server = () => {
+  const httpServer = http.createServer(app);
 
-  require("./app")(app);
-  app.listen(port, () => {
-    console.log("app listening on port", port);
+  // Initialize Socket.IO
+  const io = new Server(httpServer, {
+    path: "/api/socket/red-blue-fight",
+    cors: {
+      origin: "*",
+      methods: ["GET", "POST"],
+    },
+  });
+  // Attach app routes and socket controller
+  require("./app")(app, io);
+
+  const port = process.env.PORT || 7000;
+  httpServer.listen(port, () => {
+    console.log(`🚀 App listening on port ${port}`);
   });
 };
 if (isclustered && noOfCpus > 1) {
