@@ -1,7 +1,6 @@
 let allMatchesObj = {};
 
 module.exports = function (io) {
-  console.log("Socket.IO initialized");
   io.on("connection", (socket) => {
     console.log("✅ Socket.IO connected:", socket.id);
 
@@ -47,30 +46,25 @@ module.exports = function (io) {
 
     socket.on("joinMatchScoreBoard", ({ refereeId }) => {
       const activeMatchEntry = Object.entries(allMatchesObj).find(
-        ([_, match]) => match.status === "active"
+        ([key, match]) => match.status === "active"
       );
-      const [activeMatchId, activeMatch] = activeMatchEntry || [0, null];
-      if (!activeMatch) return;
 
-      socket.emit("updateScore", activeMatch);
+      if (activeMatchEntry) {
+        const [matchId, match] = activeMatchEntry;
+
+        // Join room after finding active match
+        socket.join(matchId);
+
+        // Send active match details back to the client
+        socket.emit("updateScore", match);
+      } else {
+        socket.emit("updateScore", null);
+      }
     });
 
     socket.on("updateScore", ({ matchId, refereeId, player, value }) => {
-      const activeMatchEntry = Object.entries(allMatchesObj).find(
-        ([_, match]) => match.status === "active"
-      );
-      const [activeMatchId, activeMatch] = activeMatchEntry || [0, null];
-      if (!activeMatch) return;
-
-      if (activeMatch.finished) return;
-
-      if (!["red", "blue"].includes(player)) {
-        return io.to(matchId).emit("matchFinished", {
-          message: `Match ${matchId} has finished.`,
-          finalScore: activeMatch.total,
-          matchFinish: true,
-        });
-      }
+      const activeMatch = allMatchesObj[matchId];
+      if (!activeMatch || activeMatch.finished) return;
 
       if (!activeMatch.referees[refereeId]) {
         activeMatch.referees[refereeId] = { red: 0, blue: 0 };
@@ -87,7 +81,7 @@ module.exports = function (io) {
         0
       );
 
-      socket.emit("updateScore", activeMatch);
+      io.to(matchId).emit("updateScore", activeMatch);
     });
 
     socket.on("finishMatch", ({ matchId }) => {
