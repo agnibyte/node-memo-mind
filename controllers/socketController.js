@@ -1,20 +1,45 @@
 let allMatchesObj = {};
 
+function getActiveMatchEntry() {
+  return Object.entries(allMatchesObj).find(([_, match]) => match.status === "active");
+}
+
+function initMatchIfNeeded(matchId, status) {
+  if (!allMatchesObj[matchId]) {
+    allMatchesObj[matchId] = {
+      total: { red: 0, blue: 0 },
+      referees: {},
+      finished: false,
+      status,
+      matchId,
+    };
+  }
+}
+
+function initRefereeIfNeeded(matchId, refereeId) {
+  if (!allMatchesObj[matchId].referees[refereeId]) {
+    allMatchesObj[matchId].referees[refereeId] = { red: 0, blue: 0 };
+  }
+}
+
+function calculateTotalScores(referees) {
+  return {
+    red: Object.values(referees).reduce((sum, ref) => sum + ref.red, 0),
+    blue: Object.values(referees).reduce((sum, ref) => sum + ref.blue, 0),
+  };
+}
+
 module.exports = function (io) {
   io.on("connection", (socket) => {
-
     socket.onAny((eventName, ...args) => {
-      // console.log(`✅✅ Event received: ${eventName}`, args);
+      console.log(`✅✅ Event received: ${eventName}`, args);
     });
 
     socket.on("joinMatch", ({ matchId, refereeId, status }) => {
       socket.join(matchId);
       const response = { status: false };
 
-      const activeMatchEntry = Object.entries(allMatchesObj).find(
-        ([_, match]) => match.status === "active"
-      );
-
+      const activeMatchEntry = getActiveMatchEntry();
       if (activeMatchEntry) {
         const [activeMatchId] = activeMatchEntry;
         response.message = "Please finish the active matches";
@@ -23,19 +48,8 @@ module.exports = function (io) {
         return;
       }
 
-      if (!allMatchesObj[matchId]) {
-        allMatchesObj[matchId] = {
-          total: { red: 0, blue: 0 },
-          referees: {},
-          finished: false,
-          status,
-          matchId,
-        };
-      }
-
-      if (!allMatchesObj[matchId].referees[refereeId]) {
-        allMatchesObj[matchId].referees[refereeId] = { red: 0, blue: 0 };
-      }
+      initMatchIfNeeded(matchId, status);
+      initRefereeIfNeeded(matchId, refereeId);
 
       response.status = true;
       response.message = `Referee ${refereeId} joined Match ${matchId}`;
@@ -44,17 +58,10 @@ module.exports = function (io) {
     });
 
     socket.on("joinMatchScoreBoard", ({ refereeId }) => {
-      const activeMatchEntry = Object.entries(allMatchesObj).find(
-        ([key, match]) => match.status === "active"
-      );
-
+      const activeMatchEntry = getActiveMatchEntry();
       if (activeMatchEntry) {
         const [matchId, match] = activeMatchEntry;
-
-        // Join room after finding active match
         socket.join(matchId);
-
-        // Send active match details back to the client
         socket.emit("updateScore", match);
       } else {
         socket.emit("updateScore", null);
@@ -62,38 +69,27 @@ module.exports = function (io) {
     });
 
     socket.on("updateScore", ({ matchId, refereeId, player, value }) => {
-      const activeMatch = allMatchesObj[matchId];
-      if (!activeMatch || activeMatch.finished) return;
+      const match = allMatchesObj[matchId];
+      if (!match || match.finished) return;
 
-      if (!activeMatch.referees[refereeId]) {
-        activeMatch.referees[refereeId] = { red: 0, blue: 0 };
-      }
+      initRefereeIfNeeded(matchId, refereeId);
 
-      activeMatch.referees[refereeId][player] += value;
+      match.referees[refereeId][player] += value;
+      match.total = calculateTotalScores(match.referees);
 
-      activeMatch.total.red = Object.values(activeMatch.referees).reduce(
-        (sum, ref) => sum + ref.red,
-        0
-      );
-      activeMatch.total.blue = Object.values(activeMatch.referees).reduce(
-        (sum, ref) => sum + ref.blue,
-        0
-      );
-
-      io.to(matchId).emit("updateScore", activeMatch);
+      io.to(matchId).emit("updateScore", match);
     });
 
     socket.on("finishMatch", ({ matchId }) => {
-      if (!allMatchesObj[matchId]) return;
+      const match = allMatchesObj[matchId];
+      if (!match || match.finished) return;
 
-      if (allMatchesObj[matchId].finished) return;
-
-      allMatchesObj[matchId].finished = true;
-      allMatchesObj[matchId].status = "finished";
+      match.finished = true;
+      match.status = "finished";
 
       io.to(matchId).emit("matchFinished", {
         message: `Match ${matchId} has finished.`,
-        finalScore: allMatchesObj[matchId].total,
+        finalScore: match.total,
         matchStatus: true,
       });
     });
