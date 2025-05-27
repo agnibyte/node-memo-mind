@@ -1,7 +1,12 @@
 let allMatchesObj = {};
 
-function getActiveMatchEntry() {
-  return Object.entries(allMatchesObj).find(([_, match]) => match.status === "active");
+function getActiveMatchEntry(isScoreBoard = false) {
+  const result = Object.entries(allMatchesObj).find(([_, match]) =>
+    isScoreBoard
+      ? match.status === "active" || match.status === "started"
+      : match.status === "active"
+  );
+  return result;
 }
 
 function initMatchIfNeeded(matchId, status) {
@@ -58,7 +63,7 @@ module.exports = function (io) {
     });
 
     socket.on("joinMatchScoreBoard", ({ refereeId }) => {
-      const activeMatchEntry = getActiveMatchEntry();
+      const activeMatchEntry = getActiveMatchEntry(true);
       if (activeMatchEntry) {
         const [matchId, match] = activeMatchEntry;
         socket.join(matchId);
@@ -78,6 +83,14 @@ module.exports = function (io) {
       match.total = calculateTotalScores(match.referees);
 
       io.to(matchId).emit("updateScore", match);
+    });
+
+    socket.on("startMatch", ({ matchId, refereeId }) => {
+      const match = allMatchesObj[matchId];
+      if (!match || match.finished) return;
+
+      match.status = "started";
+      // io.to(matchId).emit("updateScore", match);
     });
 
     socket.on("finishMatch", ({ matchId }) => {
