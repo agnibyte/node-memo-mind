@@ -1,2 +1,2 @@
 module.exports.adminRoles =["admin", "manager"];
-global.USER_TABLE = 'user_test' 
+global.USER_TABLE = 'user_test'//ghjbhh 
