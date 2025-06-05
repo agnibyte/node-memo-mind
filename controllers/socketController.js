@@ -99,12 +99,13 @@ module.exports = function (io) {
 
       match.finished = true;
       match.status = "finished";
+      io.to(matchId).emit("updateScore", match);
 
-      io.to(matchId).emit("matchFinished", {
-        message: `Match ${matchId} has finished.`,
-        finalScore: match.total,
-        matchStatus: true,
-      });
+      // io.to(matchId).emit("matchFinished", {
+      //   message: `Match ${matchId} has finished.`,
+      //   finalScore: match.total,
+      //   matchStatus: true,
+      // });
     });
 
     socket.on("disconnect", () => {
