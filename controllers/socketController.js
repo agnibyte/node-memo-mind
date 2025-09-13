@@ -92,6 +92,16 @@ module.exports = function (io) {
       match.status = "started";
       // io.to(matchId).emit("updateScore", match);
     });
+    socket.on("resetMatch", ({ matchId, refereeId }) => {
+      // const match = allMatchesObj[matchId];
+      // if (!match || match.finished) return;
+      console.log("allMatchesObj", allMatchesObj);
+
+      delete allMatchesObj[matchId];
+      console.log("allMatchesObj", allMatchesObj);
+
+      // io.to(matchId).emit("updateScore", match);
+    });
 
     socket.on("finishMatch", ({ matchId }) => {
       const match = allMatchesObj[matchId];
