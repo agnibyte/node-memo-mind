@@ -75,7 +75,13 @@ module.exports = function (io) {
 
     socket.on("updateScore", ({ matchId, refereeId, player, value }) => {
       const match = allMatchesObj[matchId];
-      if (!match || match.finished) return;
+      if (!match || match?.finished) {
+        // status: false,
+        // message: "Match not found or already finished",
+
+        io.to(matchId).emit("updateScore", false);
+        return;
+      }
 
       initRefereeIfNeeded(matchId, refereeId);
 
