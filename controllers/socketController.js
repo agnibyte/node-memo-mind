@@ -9,7 +9,7 @@ function getActiveMatchEntry(isScoreBoard = false) {
   return result;
 }
 
-function initMatchIfNeeded(matchId, status) {
+function initMatchIfNeeded(matchId, status, matchTime) {
   if (!allMatchesObj[matchId]) {
     allMatchesObj[matchId] = {
       total: { red: 0, blue: 0 },
@@ -17,6 +17,7 @@ function initMatchIfNeeded(matchId, status) {
       finished: false,
       status,
       matchId,
+      matchTime,
     };
   }
 }
@@ -40,7 +41,7 @@ module.exports = function (io) {
       console.log(`✅✅ Event received: ${eventName}`, args);
     });
 
-    socket.on("joinMatch", ({ matchId, refereeId, status }) => {
+    socket.on("joinMatch", ({ matchId, refereeId, status, matchTime }) => {
       socket.join(matchId);
       const response = { status: false };
 
@@ -53,7 +54,7 @@ module.exports = function (io) {
         return;
       }
 
-      initMatchIfNeeded(matchId, status);
+      initMatchIfNeeded(matchId, status, matchTime);
       initRefereeIfNeeded(matchId, refereeId);
 
       response.status = true;
