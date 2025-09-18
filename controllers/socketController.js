@@ -68,7 +68,8 @@ module.exports = function (io) {
       if (activeMatchEntry) {
         const [matchId, match] = activeMatchEntry;
         socket.join(matchId);
-        socket.emit("updateScore", match);
+        // socket.emit("updateScore", match);
+        socket.emit("joinMatchScoreBoardScore", match);
       } else {
         socket.emit("updateScore", null);
       }
