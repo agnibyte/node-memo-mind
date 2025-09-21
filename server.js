@@ -6,6 +6,7 @@ const app = express();
 const cookieParser = require("cookie-parser");
 const http = require("http");
 const { Server } = require("socket.io");
+const socketManager = require("./controllers/socketManager");
 
 app.use(cookieParser());
 app.use(express.json());
@@ -21,14 +22,21 @@ const server = () => {
 
   // Initialize Socket.IO
   const io = new Server(httpServer, {
-    path: "/api/socket/red-blue-fight",
     cors: {
       origin: "*",
       methods: ["GET", "POST"],
     },
   });
-  // Attach app routes and socket controller
-  require("./app")(app, io);
+
+  // Create namespaces for different games
+  const redBlueNamespace = io.of("/api/socket/red-blue-fight");
+  const soloNamespace = io.of("/api/socket/solo-game");
+
+  // Attach controllers
+  socketManager(redBlueNamespace, soloNamespace);
+
+  // Pass io + namespaces to routes
+  require("./app")(app, { io, redBlueNamespace, soloNamespace });
 
   const port = process.env.PORT || 7000;
   httpServer.listen(port, () => {
