@@ -55,7 +55,7 @@ module.exports = function (io) {
     /**
      * Referee joins a solo match
      */
-    socket.on("joinSoloMatch", ({ matchId, refereeId, status, matchTime }) => {
+    socket.on("addMatchToQueue", ({ matchId, refereeId, status, matchTime }) => {
       socket.join(matchId);
       const response = { status: false };
 
