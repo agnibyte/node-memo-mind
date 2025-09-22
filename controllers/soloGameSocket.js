@@ -46,8 +46,8 @@ function getActiveSoloMatch(isScoreBoard = false) {
   return result;
 }
 
-module.exports = function (io) {
-  io.on("connection", (socket) => {
+module.exports = function (soloNamespace) {
+  soloNamespace.on("connection", (socket) => {
     socket.onAny((eventName, ...args) => {
       console.log(`🎯 Solo Event received: ${eventName}`, args);
     });
@@ -97,7 +97,7 @@ module.exports = function (io) {
     socket.on("updateSoloScore", ({ matchId, refereeId, value }) => {
       const match = soloMatches[matchId];
       if (!match || match.finished) {
-        io.to(matchId).emit("soloMatchScoreUpdate", false);
+        soloNamespace.to(matchId).emit("soloMatchScoreUpdate", false);
         return;
       }
 
@@ -106,7 +106,7 @@ module.exports = function (io) {
       match.referees[refereeId] += value;
       match.totalScore = calculateSoloTotalScore(match.referees);
 
-      io.to(matchId).emit("soloMatchScoreUpdate", match);
+      soloNamespace.to(matchId).emit("soloMatchScoreUpdate", match);
     });
 
     /**
@@ -117,7 +117,7 @@ module.exports = function (io) {
       if (!match || match.finished) return;
 
       match.status = "started";
-      io.to(matchId).emit("soloMatchStarted", match);
+      soloNamespace.to(matchId).emit("soloMatchStarted", match);
     });
 
     /**
@@ -138,7 +138,7 @@ module.exports = function (io) {
 
       match.finished = true;
       match.status = "finished";
-      io.to(matchId).emit("soloMatchFinished", match);
+      soloNamespace.to(matchId).emit("soloMatchFinished", match);
     });
 
     /**

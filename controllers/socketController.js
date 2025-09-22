@@ -35,17 +35,19 @@ function calculateTotalScores(referees) {
   };
 }
 
-module.exports = function (io) {
-  io.on("connection", (socket) => {
+module.exports = function (redBlueNamespace) {
+  redBlueNamespace.on("connection", (socket) => {
     socket.onAny((eventName, ...args) => {
       console.log(`✅✅ Event received: ${eventName}`, args);
     });
 
     socket.on("joinMatch", ({ matchId, refereeId, status, matchTime }) => {
+      console.log("in join ", matchId, refereeId);
       socket.join(matchId);
       const response = { status: false };
 
       const activeMatchEntry = getActiveMatchEntry();
+      console.log("activeMatchEntry", activeMatchEntry);
       if (activeMatchEntry) {
         const [activeMatchId] = activeMatchEntry;
         response.message = "Please finish the active matches";
@@ -81,7 +83,7 @@ module.exports = function (io) {
         // status: false,
         // message: "Match not found or already finished",
 
-        io.to(matchId).emit("updateScore", false);
+        redBlueNamespace.to(matchId).emit("updateScore", false);
         return;
       }
 
@@ -90,7 +92,7 @@ module.exports = function (io) {
       match.referees[refereeId][player] += value;
       match.total = calculateTotalScores(match.referees);
 
-      io.to(matchId).emit("updateScore", match);
+      redBlueNamespace.to(matchId).emit("updateScore", match);
     });
 
     socket.on("startMatch", ({ matchId, refereeId }) => {
@@ -98,7 +100,7 @@ module.exports = function (io) {
       if (!match || match.finished) return;
 
       match.status = "started";
-      // io.to(matchId).emit("updateScore", match);
+      // redBlueNamespace.to(matchId).emit("updateScore", match);
     });
     socket.on("resetMatch", ({ matchId, refereeId }) => {
       // const match = allMatchesObj[matchId];
@@ -108,7 +110,7 @@ module.exports = function (io) {
       delete allMatchesObj[matchId];
       console.log("allMatchesObj", allMatchesObj);
 
-      // io.to(matchId).emit("updateScore", match);
+      // redBlueNamespace.to(matchId).emit("updateScore", match);
     });
 
     socket.on("finishMatch", ({ matchId }) => {
@@ -117,9 +119,9 @@ module.exports = function (io) {
 
       match.finished = true;
       match.status = "finished";
-      io.to(matchId).emit("updateScore", match);
+      redBlueNamespace.to(matchId).emit("updateScore", match);
 
-      // io.to(matchId).emit("matchFinished", {
+      // redBlueNamespace.to(matchId).emit("matchFinished", {
       //   message: `Match ${matchId} has finished.`,
       //   finalScore: match.total,
       //   matchStatus: true,
