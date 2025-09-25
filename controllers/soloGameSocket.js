@@ -5,7 +5,7 @@ let soloMatches = {};
 /**
  * Ensure solo match object exists
  */
-function initSoloMatchIfNeeded(matchId, status, matchTime) {
+function initSoloMatchIfNeeded(matchId, status, matchTime, name, state) {
   if (!soloMatches[matchId]) {
     soloMatches[matchId] = {
       totalScore: 0,
@@ -14,6 +14,8 @@ function initSoloMatchIfNeeded(matchId, status, matchTime) {
       status,
       matchId,
       matchTime,
+      name,
+      state,
     };
   }
 }
@@ -55,27 +57,30 @@ module.exports = function (soloNamespace) {
     /**
      * Referee joins a solo match
      */
-    socket.on("addMatchToQueue", ({ matchId, refereeId, status, matchTime }) => {
-      socket.join(matchId);
-      const response = { status: false };
+    socket.on(
+      "addMatchToQueue",
+      ({ matchId, refereeId, status, matchTime, name, state }) => {
+        socket.join(matchId);
+        const response = { status: false };
 
-      const activeMatchEntry = getActiveSoloMatch();
-      if (activeMatchEntry) {
-        const [activeMatchId] = activeMatchEntry;
-        response.message = "Please finish the active solo match first.";
-        response.activeMatchId = activeMatchId;
+        const activeMatchEntry = getActiveSoloMatch();
+        if (activeMatchEntry) {
+          const [activeMatchId] = activeMatchEntry;
+          response.message = "Please finish the active solo match first.";
+          response.activeMatchId = activeMatchId;
+          socket.emit("soloMatchUpdate", response);
+          return;
+        }
+
+        initSoloMatchIfNeeded(matchId, status, matchTime, name, state);
+        initSoloRefereeIfNeeded(matchId, refereeId);
+
+        response.status = true;
+        response.message = `Referee ${refereeId} joined Solo Match ${matchId}`;
+        response.activeMatchId = matchId;
         socket.emit("soloMatchUpdate", response);
-        return;
       }
-
-      initSoloMatchIfNeeded(matchId, status, matchTime);
-      initSoloRefereeIfNeeded(matchId, refereeId);
-
-      response.status = true;
-      response.message = `Referee ${refereeId} joined Solo Match ${matchId}`;
-      response.activeMatchId = matchId;
-      socket.emit("soloMatchUpdate", response);
-    });
+    );
 
     /**
      * Scoreboard joins solo match
@@ -85,6 +90,7 @@ module.exports = function (soloNamespace) {
       if (activeMatchEntry) {
         const [matchId, match] = activeMatchEntry;
         socket.join(matchId);
+        console.log("soloMatchScoreBoardUpdate", match);
         socket.emit("soloMatchScoreBoardUpdate", match);
       } else {
         socket.emit("soloMatchScoreBoardUpdate", null);
