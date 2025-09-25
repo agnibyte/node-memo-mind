@@ -101,17 +101,20 @@ module.exports = function (soloNamespace) {
      * Referee gives score to the solo player
      */
     socket.on("updateSoloScore", ({ matchId, refereeId, value }) => {
+      console.log("soloMatches", soloMatches);
       const match = soloMatches[matchId];
-      if (!match || match.finished) {
+      console.log("match", match);
+      if (!match) {
         soloNamespace.to(matchId).emit("soloMatchScoreUpdate", false);
         return;
       }
 
       initSoloRefereeIfNeeded(matchId, refereeId);
 
-      match.referees[refereeId] += value;
+      match.referees[refereeId] += parseInt(value);
       match.totalScore = calculateSoloTotalScore(match.referees);
 
+      console.log("match", match);
       soloNamespace.to(matchId).emit("soloMatchScoreUpdate", match);
     });
 
