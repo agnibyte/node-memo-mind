@@ -102,7 +102,8 @@ module.exports = function (redBlueNamespace) {
       match.referees[refereeId][player] += value;
       match.total = calculateTotalScores(match.referees);
 
-      redBlueNamespace.to(matchId).emit("updateScore", match);
+      redBlueNamespace.emit("updateScore", match);
+      // redBlueNamespace.to(matchId).emit("updateScore", match);
     });
 
     // Start match
