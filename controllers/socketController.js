@@ -1,3 +1,5 @@
+const { response } = require("express");
+
 let allMatchesObj = {};
 
 function getActiveMatchEntry(isScoreBoard = false) {
@@ -37,82 +39,89 @@ function calculateTotalScores(referees) {
 
 module.exports = function (redBlueNamespace) {
   redBlueNamespace.on("connection", (socket) => {
+    console.log("✅ New client connected:", socket.id);
+
     socket.onAny((eventName, ...args) => {
-      console.log(`✅✅ Event received: ${eventName}`, args);
+      console.log(`📩 Event received: ${eventName}`, args);
     });
 
-    socket.on("joinMatch", ({ matchId, refereeId, status, matchTime }) => {
-      console.log("in join ", matchId, refereeId);
-      socket.join(matchId);
-      const response = { status: false };
+    // Add match from Page 1
+    socket.on(
+      "addMatchToQueue",
+      ({ matchId, refereeId, status, matchTime }) => {
+        console.log("🆕 Add match request:", matchId, refereeId);
+        socket.join(matchId);
+        let response = { status: false };
 
-      const activeMatchEntry = getActiveMatchEntry();
-      console.log("activeMatchEntry", activeMatchEntry);
-      if (activeMatchEntry) {
-        const [activeMatchId] = activeMatchEntry;
-        response.message = "Please finish the active matches";
-        response.activeMatchId = activeMatchId;
-        socket.emit("allMatches", response);
-        return;
+        const activeMatchEntry = getActiveMatchEntry();
+        if (activeMatchEntry) {
+          const [activeMatchId] = activeMatchEntry;
+          response.message = "⚠️ Please finish the active match first";
+          response.matchId = activeMatchId;
+          socket.emit("allMatches", response);
+          return;
+        }
+
+        // Init and save
+        initMatchIfNeeded(matchId, status, matchTime);
+        initRefereeIfNeeded(matchId, refereeId);
+
+        response = { status: true, ...allMatchesObj[matchId] };
+        console.log("🎯 Active Match Set:", response);
+
+        // 🔥 Broadcast to EVERYONE (queue + scoreboard pages)
+        redBlueNamespace.emit("joinMatchScoreBoardScore", response);
       }
+    );
 
-      initMatchIfNeeded(matchId, status, matchTime);
-      initRefereeIfNeeded(matchId, refereeId);
-
-      response.status = true;
-      response.message = `Referee ${refereeId} joined Match ${matchId}`;
-      response.activeMatchId = matchId;
-      socket.emit("allMatches", response);
-    });
-
-    socket.on("joinMatchScoreBoard", ({ refereeId }) => {
+    // Scoreboard connects (no matchId needed)
+    socket.on("joinMatchScoreBoard", () => {
       const activeMatchEntry = getActiveMatchEntry(true);
       if (activeMatchEntry) {
         const [matchId, match] = activeMatchEntry;
         socket.join(matchId);
-        // socket.emit("updateScore", match);
+        console.log("📊 Scoreboard joined, sending match:", match);
         socket.emit("joinMatchScoreBoardScore", match);
       } else {
-        socket.emit("updateScore", null);
+        socket.emit("joinMatchScoreBoardScore", {
+          status: false,
+          message: "No active match",
+        });
       }
     });
 
+    // Update score
     socket.on("updateScore", ({ matchId, refereeId, player, value }) => {
       const match = allMatchesObj[matchId];
       if (!match || match?.finished) {
-        // status: false,
-        // message: "Match not found or already finished",
-
         redBlueNamespace.to(matchId).emit("updateScore", false);
         return;
       }
 
       initRefereeIfNeeded(matchId, refereeId);
-
       match.referees[refereeId][player] += value;
       match.total = calculateTotalScores(match.referees);
 
       redBlueNamespace.to(matchId).emit("updateScore", match);
     });
 
-    socket.on("startMatch", ({ matchId, refereeId }) => {
+    // Start match
+    socket.on("startMatch", ({ matchId }) => {
       const match = allMatchesObj[matchId];
       if (!match || match.finished) return;
-
       match.status = "started";
-      // redBlueNamespace.to(matchId).emit("updateScore", match);
+      redBlueNamespace.to(matchId).emit("joinMatchScoreBoardScore", match);
     });
-    socket.on("resetMatch", ({ matchId, refereeId }) => {
-      // const match = allMatchesObj[matchId];
-      // if (!match || match.finished) return;
-      console.log("allMatchesObj", allMatchesObj);
 
+    // Reset (remove match completely)
+    socket.on("resetMatch", ({ matchId }) => {
+      console.log("♻️ Resetting match:", matchId);
       delete allMatchesObj[matchId];
-      console.log("allMatchesObj", allMatchesObj);
-
-      // redBlueNamespace.to(matchId).emit("updateScore", match);
+      const response = { status: "reset", matchId, message: "Match reset" };
+      redBlueNamespace.emit("joinMatchScoreBoardScore", response);
     });
 
+    // Finish match
     socket.on("finishMatch", ({ matchId }) => {
       const match = allMatchesObj[matchId];
       if (!match || match.finished) return;
@@ -121,15 +130,15 @@ module.exports = function (redBlueNamespace) {
       match.status = "finished";
       redBlueNamespace.to(matchId).emit("updateScore", match);
 
-      // redBlueNamespace.to(matchId).emit("matchFinished", {
-      //   message: `Match ${matchId} has finished.`,
-      //   finalScore: match.total,
-      //   matchStatus: true,
-      // });
+      // clear active
+      redBlueNamespace.emit("joinMatchScoreBoardScore", {
+        status: false,
+        message: "No active match",
+      });
     });
 
     socket.on("disconnect", () => {
-      console.log("Client disconnected:", socket.id);
+      console.log("❌ Client disconnected:", socket.id);
     });
   });
 };
