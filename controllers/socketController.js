@@ -5,7 +5,9 @@ let allMatchesObj = {};
 function getActiveMatchEntry(isScoreBoard = false) {
   const result = Object.entries(allMatchesObj).find(([_, match]) =>
     isScoreBoard
-      ? match.status === "active" || match.status === "started"
+      ? match.status === "active" ||
+        match.status === "started" ||
+        match.status === "start"
       : match.status === "active"
   );
   return result;
@@ -110,8 +112,19 @@ module.exports = function (redBlueNamespace) {
     socket.on("startMatch", ({ matchId }) => {
       const match = allMatchesObj[matchId];
       if (!match || match.finished) return;
-      match.status = "started";
-      redBlueNamespace.to(matchId).emit("joinMatchScoreBoardScore", match);
+      match.status = "start";
+      console.log("▶️ Starting match:", matchId, match);
+      // redBlueNamespace.to(matchId).emit("updateScore", match);
+      redBlueNamespace.emit("updateScore", match);
+    });
+
+    socket.on("pauseMatch", ({ matchId }) => {
+      const match = allMatchesObj[matchId];
+      if (!match || match.finished) return;
+      match.status = "paused";
+      // console.log(" ⏸️ Pausing match:", matchId, match);
+      // redBlueNamespace.to(matchId).emit("updateScore", match);
+      redBlueNamespace.emit("updateScore", match);
     });
 
     // Reset (remove match completely)
