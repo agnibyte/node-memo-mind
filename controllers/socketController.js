@@ -13,7 +13,7 @@ function getActiveMatchEntry(isScoreBoard = false) {
   return result;
 }
 
-function initMatchIfNeeded(matchId, status, matchTime) {
+function initMatchIfNeeded(matchId, status, matchTime, player = {}) {
   if (!allMatchesObj[matchId]) {
     allMatchesObj[matchId] = {
       total: { red: 0, blue: 0 },
@@ -22,6 +22,7 @@ function initMatchIfNeeded(matchId, status, matchTime) {
       status,
       matchId,
       matchTime,
+      player,
     };
   }
 }
@@ -50,7 +51,7 @@ module.exports = function (redBlueNamespace) {
     // Add match from Page 1
     socket.on(
       "addMatchToQueue",
-      ({ matchId, refereeId, status, matchTime }) => {
+      ({ matchId, refereeId, status, matchTime, player = {} }) => {
         console.log("🆕 Add match request:", matchId, refereeId);
         socket.join(matchId);
         let response = { status: false };
@@ -65,7 +66,7 @@ module.exports = function (redBlueNamespace) {
         }
 
         // Init and save
-        initMatchIfNeeded(matchId, status, matchTime);
+        initMatchIfNeeded(matchId, status, matchTime, player);
         initRefereeIfNeeded(matchId, refereeId);
 
         response = { status: true, ...allMatchesObj[matchId] };
