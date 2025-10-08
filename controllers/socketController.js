@@ -56,34 +56,36 @@ module.exports = function (redBlueNamespace) {
         socket.join(matchId);
         let response = { status: false };
 
-        const activeMatchEntry = getActiveMatchEntry();
-        if (activeMatchEntry) {
-          const [activeMatchId] = activeMatchEntry;
-          response.message = "⚠️ Please finish the active match first";
-          response.matchId = activeMatchId;
-          socket.emit("allMatches", response);
-          return;
-        }
-
-        // Init and save
+        // Init and save match + referee
         initMatchIfNeeded(matchId, status, matchTime, player);
         initRefereeIfNeeded(matchId, refereeId);
 
         response = { status: true, ...allMatchesObj[matchId] };
-        console.log("🎯 Active Match Set:", response);
+        console.log("🎯 Match Set:", response);
 
-        // 🔥 Broadcast to EVERYONE (queue + scoreboard pages)
+        // ✅ Notify everyone in this match room only
         redBlueNamespace.emit("joinMatchScoreBoardScore", response);
       }
     );
 
-    // Scoreboard connects (no matchId needed)
-    socket.on("joinMatchScoreBoard", () => {
-      const activeMatchEntry = getActiveMatchEntry(true);
-      if (activeMatchEntry) {
-        const [matchId, match] = activeMatchEntry;
+    // Scoreboard connects (client may or may not pass matchId)
+    socket.on("joinMatchScoreBoard", ({ matchId = "" } = {}) => {
+      let match;
+
+      if (matchId) {
+        match = allMatchesObj[matchId];
+      } else {
+        const activeMatchEntry = getActiveMatchEntry(true);
+        if (activeMatchEntry) {
+          const [id, m] = activeMatchEntry;
+          matchId = id;
+          match = m;
+        }
+      }
+
+      if (match) {
         socket.join(matchId);
-        console.log("📊 Scoreboard joined, sending match:", match);
+        console.log("📊 Scoreboard joined match:", matchId);
         socket.emit("joinMatchScoreBoardScore", match);
       } else {
         socket.emit("joinMatchScoreBoardScore", {
@@ -105,35 +107,40 @@ module.exports = function (redBlueNamespace) {
       match.referees[refereeId][player] += value;
       match.total = calculateTotalScores(match.referees);
 
-      redBlueNamespace.emit("updateScore", match);
-      // redBlueNamespace.to(matchId).emit("updateScore", match);
+      // ✅ Send only to this match room
+      redBlueNamespace.to(matchId).emit("updateScore", match);
     });
 
     // Start match
     socket.on("startMatch", ({ matchId }) => {
       const match = allMatchesObj[matchId];
       if (!match || match.finished) return;
+
       match.status = "start";
-      console.log("▶️ Starting match:", matchId, match);
-      // redBlueNamespace.to(matchId).emit("updateScore", match);
-      redBlueNamespace.emit("updateScore", match);
+      console.log("▶️ Starting match:", matchId);
+
+      redBlueNamespace.to(matchId).emit("updateScore", match);
     });
 
+    // Pause match
     socket.on("pauseMatch", ({ matchId }) => {
       const match = allMatchesObj[matchId];
       if (!match || match.finished) return;
+
       match.status = "paused";
-      // console.log(" ⏸️ Pausing match:", matchId, match);
-      // redBlueNamespace.to(matchId).emit("updateScore", match);
-      redBlueNamespace.emit("updateScore", match);
+      console.log("⏸️ Pausing match:", matchId);
+
+      redBlueNamespace.to(matchId).emit("updateScore", match);
     });
 
-    // Reset (remove match completely)
+    // Reset match
     socket.on("resetMatch", ({ matchId }) => {
       console.log("♻️ Resetting match:", matchId);
       delete allMatchesObj[matchId];
       const response = { status: "reset", matchId, message: "Match reset" };
-      redBlueNamespace.emit("joinMatchScoreBoardScore", response);
+
+      // ✅ Notify only that match room
+      redBlueNamespace.to(matchId).emit("joinMatchScoreBoardScore", response);
     });
 
     // Finish match
@@ -143,12 +150,11 @@ module.exports = function (redBlueNamespace) {
 
       match.finished = true;
       match.status = "finished";
-      redBlueNamespace.to(matchId).emit("updateScore", match);
 
-      // clear active
-      redBlueNamespace.emit("joinMatchScoreBoardScore", {
+      redBlueNamespace.to(matchId).emit("updateScore", match);
+      redBlueNamespace.to(matchId).emit("joinMatchScoreBoardScore", {
         status: false,
-        message: "No active match",
+        message: "Match finished",
       });
     });
 
