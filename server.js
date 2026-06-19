@@ -31,10 +31,12 @@ const server = () => {
   // Create namespaces for different games
   const redBlueNamespace = io.of("/red-blue-fight");
   const soloNamespace = io.of("/solo-game");
+  const home = io.of("/home");
 
   // Attach controllers
   require("./controllers/socketController")(redBlueNamespace);
   require("./controllers/soloGameSocket")(soloNamespace);
+  require("./controllers/homeSocket")(home);
 
   // Attach app routes
   require("./app")(app, io);

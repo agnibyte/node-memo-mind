@@ -1,44 +1,63 @@
 const { response } = require("express");
 
+// This file should not create a server - it's just for namespace handling
+// The main server is in /api/socket.js
+
 let allMatchesObj = {};
 
-function getActiveMatchEntry(isScoreBoard = false) {
-  const result = Object.entries(allMatchesObj).find(([_, match]) =>
-    isScoreBoard
-      ? match.status === "active" ||
-        match.status === "started" ||
-        match.status === "start"
-      : match.status === "active"
-  );
-  return result;
+function getActiveMatchEntry(onlyActive = false) {
+  const entries = Object.entries(allMatchesObj);
+  if (onlyActive) {
+    return entries.find(
+      ([id, match]) => !match.finished && match.status === "active"
+    );
+  }
+  return entries.find(([id, match]) => !match.finished);
 }
-
-function initMatchIfNeeded(matchId, status, matchTime, player = {}) {
+// Helper functions
+const initMatchIfNeeded = (matchId, status, matchTime, player) => {
   if (!allMatchesObj[matchId]) {
     allMatchesObj[matchId] = {
+      matchId,
+      status: status || "active",
+      matchTime: matchTime || 1.5, // in minutes
+      player: player || {},
       total: { red: 0, blue: 0 },
       referees: {},
       finished: false,
-      status,
-      matchId,
-      matchTime,
-      player,
+      createdAt: new Date().toISOString(),
+      // Timer properties
+      timerStarted: false,
+      timerPaused: false,
+      remainingTime: matchTime * 60, // Convert to seconds
+      startTime: null,
+      pauseTime: null,
+      totalPausedTime: 0,
+      timerId: null,
     };
   }
-}
+};
 
-function initRefereeIfNeeded(matchId, refereeId) {
+const initRefereeIfNeeded = (matchId, refereeId) => {
+  if (!allMatchesObj[matchId]) {
+    initMatchIfNeeded(matchId);
+  }
+
   if (!allMatchesObj[matchId].referees[refereeId]) {
     allMatchesObj[matchId].referees[refereeId] = { red: 0, blue: 0 };
   }
-}
+};
 
-function calculateTotalScores(referees) {
-  return {
-    red: Object.values(referees).reduce((sum, ref) => sum + ref.red, 0),
-    blue: Object.values(referees).reduce((sum, ref) => sum + ref.blue, 0),
-  };
-}
+const calculateTotalScores = (referees) => {
+  const total = { red: 0, blue: 0 };
+  Object.values(referees).forEach((ref) => {
+    total.red += ref.red || 0;
+    total.blue += ref.blue || 0;
+  });
+  return total;
+};
+// export const setupRedBlueFightNamespace = (io) => {
+// const redBlueNamespace = io.of("/red-blue-fight");
 
 module.exports = function (redBlueNamespace) {
   redBlueNamespace.on("connection", (socket) => {
@@ -119,6 +138,9 @@ module.exports = function (redBlueNamespace) {
       match.status = "start";
       console.log("▶️ Starting match:", matchId);
 
+      // startMatchTimer(matchId, redBlueNamespace);
+
+      // Broadcast match started with timer info
       redBlueNamespace.to(matchId).emit("updateScore", match);
     });
 
@@ -130,12 +152,35 @@ module.exports = function (redBlueNamespace) {
       match.status = "paused";
       console.log("⏸️ Pausing match:", matchId);
 
+      // Pause the timer
+      // pauseMatchTimer(matchId);
+
+      // Broadcast match paused with timer info
+      redBlueNamespace.to(matchId).emit("updateScore", match);
+    });
+
+    // Resume match
+    socket.on("resumeMatch", ({ matchId }) => {
+      const match = allMatchesObj[matchId];
+      if (!match || match.finished) return;
+
+      match.status = "start";
+      console.log("▶️ Resuming match:", matchId);
+
+      // Resume the timer
+      // resumeMatchTimer(matchId, redBlueNamespace);
+
+      // Broadcast match resumed with timer info
       redBlueNamespace.to(matchId).emit("updateScore", match);
     });
 
     // Reset match
     socket.on("resetMatch", ({ matchId }) => {
       console.log("♻️ Resetting match:", matchId);
+
+      // Stop the timer
+      // stopMatchTimer(matchId);
+
       delete allMatchesObj[matchId];
       const response = { status: "reset", matchId, message: "Match reset" };
 
@@ -151,11 +196,14 @@ module.exports = function (redBlueNamespace) {
       match.finished = true;
       match.status = "finished";
 
+      // Stop the timer
+      // stopMatchTimer(matchId);
+
       redBlueNamespace.to(matchId).emit("updateScore", match);
-      redBlueNamespace.to(matchId).emit("joinMatchScoreBoardScore", {
-        status: false,
-        message: "Match finished",
-      });
+      // redBlueNamespace.to(matchId).emit("joinMatchScoreBoardScore", {
+      //   status: "finished",
+      //   message: "Match finished",
+      // });
     });
 
     socket.on("disconnect", () => {
@@ -163,3 +211,110 @@ module.exports = function (redBlueNamespace) {
     });
   });
 };
+
+// // Timer management functions
+// const startMatchTimer = (matchId, redBlueNamespace) => {
+//   const match = allMatchesObj[matchId];
+//   if (!match || match.finished) return;
+
+//   // Clear existing timer if any
+//   if (match.timerId) {
+//     clearInterval(match.timerId);
+//     match.timerId = null;
+//   }
+
+//   match.timerStarted = true;
+//   match.timerPaused = false;
+//   match.startTime = Date.now();
+//   match.totalPausedTime = 0;
+
+//   console.log(
+//     `⏰ Starting timer for match ${matchId}, duration: ${match.matchTime} minutes`
+//   );
+
+//   // Update timer every second
+//   match.timerId = setInterval(() => {
+//     const match = allMatchesObj[matchId];
+//     if (!match || match.finished || match.timerPaused) return;
+
+//     const now = Date.now();
+//     const elapsed = (now - match.startTime - match.totalPausedTime) / 1000;
+//     match.remainingTime = Math.max(0, match.matchTime * 60 - elapsed);
+
+//     // Broadcast timer update to all clients in this match
+//     redBlueNamespace.to(matchId).emit("timerUpdate", {
+//       matchId,
+//       remainingTime: match.remainingTime,
+//       status: match.status,
+//       isRunning: !match.timerPaused && !match.finished,
+//     });
+
+//     // Check if timer has reached zero
+//     if (match.remainingTime <= 0) {
+//       console.log(`⏰ Timer finished for match ${matchId}`);
+//       match.finished = true;
+//       match.status = "finished";
+//       if (match.timerId) {
+//         clearInterval(match.timerId);
+//         match.timerId = null;
+//       }
+
+//       // Broadcast match finished
+//       redBlueNamespace.to(matchId).emit("matchFinished", {
+//         matchId,
+//         finalScore: match.total,
+//         message: "Match time completed",
+//       });
+//     }
+//   }, 1000);
+// };
+
+// const pauseMatchTimer = (matchId) => {
+//   const match = allMatchesObj[matchId];
+//   if (!match || !match.timerStarted || match.timerPaused || match.finished)
+//     return;
+
+//   match.timerPaused = true;
+//   match.pauseTime = Date.now();
+
+//   if (match.timerId) {
+//     clearInterval(match.timerId);
+//     match.timerId = null;
+//   }
+
+//   console.log(`⏸️ Timer paused for match ${matchId}`);
+// };
+
+// const resumeMatchTimer = (matchId, redBlueNamespace) => {
+//   const match = allMatchesObj[matchId];
+//   if (!match || !match.timerStarted || !match.timerPaused || match.finished)
+//     return;
+
+//   // Add paused time to total paused time
+//   if (match.pauseTime) {
+//     match.totalPausedTime += Date.now() - match.pauseTime;
+//     match.pauseTime = null;
+//   }
+
+//   match.timerPaused = false;
+//   console.log(`▶️ Timer resumed for match ${matchId}`);
+// };
+
+// const stopMatchTimer = (matchId) => {
+//   const match = allMatchesObj[matchId];
+//   if (!match) return;
+
+//   if (match.timerId) {
+//     clearInterval(match.timerId);
+//     match.timerId = null;
+//   }
+
+//   match.timerStarted = false;
+//   match.timerPaused = false;
+//   match.remainingTime = match.matchTime * 60;
+//   match.startTime = null;
+//   match.pauseTime = null;
+//   match.totalPausedTime = 0;
+
+//   console.log(`⏹️ Timer stopped for match ${matchId}`);
+// };
