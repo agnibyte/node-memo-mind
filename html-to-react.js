@@ -144,16 +144,19 @@ function isValidIdentifier(str) {
 }
 
 function classToRef(cls) {
-  return isValidIdentifier(cls) ? `styles.${cls}` : `styles['${cls}']`;
+  return  `${"`"}${cls}${"`"}`;
+//   return isValidIdentifier(cls) ? `styles.${cls}` : `styles['${cls}']`;
 }
 
 function classesToJsx(classStr) {
   const parts = classStr.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return null;
   const refs = parts.map(classToRef);
-  return refs.length === 1
-    ? `{${refs[0]}}`
-    : `{\`${refs.map((r) => `\${${r}}`).join(" ")}\`}`;
+  console.log(" ~ classesToJsx ~ refs:", refs)
+  return ` {${refs.map((r) => `${r}`).join(" ")}}`;
+//   return refs.length === 1   
+//     ? `{${refs[0]}}`
+//     : `{\`${refs.map((r) => `\${${r}}`).join(" ")}\`}`;
 }
 
 function htmlEventToReact(attrName) {
@@ -591,8 +594,8 @@ function main() {
     .replace(/[^a-zA-Z0-9_]/g, "")
     .replace(/^[^A-Za-z]+/, "") || "NewComponent";
 
-  console.log(`\n📂  Reading    : ${INPUT}`);
-  console.log(`⚙️   Component  : ${componentName}`);
+//   console.log(`\n📂  Reading    : ${INPUT}`);
+//   console.log(`⚙️   Component  : ${componentName}`);
 
   const root = parse(rawHtml, {
     lowerCaseTagName: true,
@@ -656,20 +659,20 @@ ${propSig || "  // no dynamic props extracted"}
 
   // Write JSX
   fs.writeFileSync(OUTPUT_JSX, component, "utf8");
-  console.log(`✅  JSX written : ${OUTPUT_JSX}`);
+//   console.log(`✅  JSX written : ${OUTPUT_JSX}`);
 
   // Write data module
   const dataModule = dataReg.toModule(componentName);
   fs.writeFileSync(OUTPUT_DATA, dataModule, "utf8");
-  console.log(`✅  Data written: ${OUTPUT_DATA}`);
+//   console.log(`✅  Data written: ${OUTPUT_DATA}`);
 
   // ── Summary ──────────────────────────────────────────────────────
-  console.log(`\n${"─".repeat(62)}`);
+//   console.log(`\n${"─".repeat(62)}`);
 
   const propEntries = props.entries;
   if (propEntries.length) {
-    console.log(`\n📦  Dynamic props extracted:`);
-    propEntries.forEach(([n, d]) => console.log(`   ${n.padEnd(18)} →  ${d}`));
+    // console.log(`\n📦  Dynamic props extracted:`);
+    // propEntries.forEach(([n, d]) => console.log(`   ${n.padEnd(18)} →  ${d}`));
   }
 
   const textCount = dataReg.text.size;
@@ -679,20 +682,20 @@ ${propSig || "  // no dynamic props extracted"}
   const linkCount = dataReg.links.length;
   const metaCount = dataReg.meta.size;
 
-  console.log(`\n📊  Static data extracted into ${componentName}.data.js:`);
-  if (metaCount) console.log(`   meta     : ${metaCount} entries`);
-  if (headingCount) console.log(`   headings : ${headingCount} (${[...dataReg.headings.keys()].join(", ")})`);
-  if (buttonCount) console.log(`   buttons  : ${buttonCount} (${[...dataReg.buttons.keys()].join(", ")})`);
-  if (textCount) console.log(`   text     : ${textCount} strings`);
-  if (imageCount) console.log(`   images   : ${imageCount}`);
-  if (linkCount) console.log(`   links    : ${linkCount}`);
+//   console.log(`\n📊  Static data extracted into ${componentName}.data.js:`);
+//   if (metaCount) console.log(`   meta     : ${metaCount} entries`);
+//   if (headingCount) console.log(`   headings : ${headingCount} (${[...dataReg.headings.keys()].join(", ")})`);
+//   if (buttonCount) console.log(`   buttons  : ${buttonCount} (${[...dataReg.buttons.keys()].join(", ")})`);
+//   if (textCount) console.log(`   text     : ${textCount} strings`);
+//   if (imageCount) console.log(`   images   : ${imageCount}`);
+//   if (linkCount) console.log(`   links    : ${linkCount}`);
 
-  console.log(`\n${"─".repeat(62)}\n`);
-  console.log(`📄  ${componentName}.data.js preview:\n`);
-  console.log(dataModule);
-  console.log(`\n${"─".repeat(62)}\n`);
-  console.log(`📄  ${componentName}.jsx preview:\n`);
-  console.log(component);
+//   console.log(`\n${"─".repeat(62)}\n`);
+//   console.log(`📄  ${componentName}.data.js preview:\n`);
+//   console.log(dataModule);
+//   console.log(`\n${"─".repeat(62)}\n`);
+//   console.log(`📄  ${componentName}.jsx preview:\n`);
+//   console.log(component);
 }
 
 main();
