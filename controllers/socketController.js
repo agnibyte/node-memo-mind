@@ -1,6 +1,7 @@
 const { response } = require("express");
 
 let allMatchesObj = {};
+console.log("🚀 ~ allMatchesObj:", allMatchesObj)
 
 function getActiveMatchEntry(isScoreBoard = false) {
   const result = Object.entries(allMatchesObj).find(([_, match]) =>
