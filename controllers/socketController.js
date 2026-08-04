@@ -1,4 +1,3 @@
-const { response } = require("express");
 
 let allMatchesObj = {};
 console.log("🚀 ~ allMatchesObj:", allMatchesObj)
@@ -98,7 +97,7 @@ module.exports = function (redBlueNamespace) {
     socket.on("updateScore", ({ matchId, refereeId, player, value }) => {
       const match = allMatchesObj[matchId];
       if (!match || match?.finished) {
-        redBlueNamespace.to(matchId).emit("updateScore", false);
+        redBlueNamespace.to(matchId).emit("updateScore", { status: false, matchId });
         return;
       }
 
@@ -144,12 +143,14 @@ module.exports = function (redBlueNamespace) {
 
       match.finished = true;
       match.status = "finished";
-      redBlueNamespace.to(matchId).emit("updateScore", match);
+      // Broadcast finish to ALL clients (not just room) so admin panel also updates
+      redBlueNamespace.emit("updateScore", match);
 
-      // clear active
+      // Notify all clients the match slot is now free
       redBlueNamespace.emit("joinMatchScoreBoardScore", {
-        status: false,
-        message: "No active match",
+        status: "finished",
+        matchId,
+        message: "Match has finished",
       });
     });
 
